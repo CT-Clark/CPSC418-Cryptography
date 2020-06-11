@@ -1,0 +1,501 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsthm,amsmath,amssymb,amsfonts}
+\usepackage[margin=1in]{geometry}
+\usepackage{mathtools}
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+
+\theoremstyle{definition}
+\newtheorem*{solution}{Solution}
+\newcounter{problem}
+
+\newcommand{\CBCMAC}{\text{CBC-MAC}}
+\newcommand{\AHMAC}{\mathrm{AHMAC}}
+\newcommand{\PHMAC}{\mathrm{PHMAC}}
+\renewcommand{\pmod}[1]{\mbox{\ $(\ensuremath{\operatorname{mod}}\ {#1})$}}
+\newcommand{\Z}{\mathbb{Z}}
+\providecommand{\Leg}[2]{\genfrac{(}{)}{}{}{#1}{#2}}
+
+
+\begin{document}
+
+\begin{center}
+{\bf \Large CPSC 418 / MATH 318 --- Introduction to Cryptography
+
+ASSIGNMENT 3 }
+\end{center}
+
+\hrule 	
+
+\textbf{Name:} Cody Clark \\
+\textbf{Student ID:} 30010560
+
+\medskip \hrule
+
+\begin{enumerate} \itemsep 20pt
+
+\stepcounter{problem}
+\item[] \textbf{Problem \theproblem} --- Flawed MAC designs, 13 marks
+
+\begin{enumerate}
+
+\item % part (a) 
+\textbf{\emph{Proof.}} Let $M_1$ be a message consisting of $L$ blocks $P_1, P_2, …, P_L$, each of length $n$ such that $M_1 = P_1 || P_2 || … || P_L$. Let $M_2$ be a message where $M_2 = M_1 || X$, where $X$ is an arbitrary $n$-bit block. We now define a message authentication function $PHMAC_K(M) = ITHASH(K||M) = ITHASH(K||P_1||P_2||...||P_L)$, where $K$ is an $n$-bit key and $ITHASH$ is the hash function defined in the assignment. Suppose an attacker knows a message/PHMAC pair $(M_1, PHMACK(M_1))$.
+
+We will now show that an attacker can compute $PHMAC_K(M_2)$ without knowledge of $K$. To begin we will examine the steps taken in order to compute $PHMACK(M_1)$ by the $ITHASH$ function. (For this example we assume $L > 6$ in order to show the pattern, but by removing some steps $L$ could be as small as $1$)
+
+After initializing $H = 0^n$ we compute the following for the first round $(i = 1): H_1 = f(H^0, P_1)$ which is equivalent to $H_1 = f(0^n, K)$. For the subsequent rounds we can see the following pattern emerge:
+
+\begin{align*}
+(i = 2): H_2 &= f(H_1, P_2) \\
+&= f(f(H_0, P_1), P_2) \\
+&= f(f(0^n, K), P_2)\\
+(i = 3): H_3 &= f(H_2, _P3)\\
+&= f(f(f(0^n, K), P_2), P_3)\\
+\vdots\\
+(i = L): H_L &= f(H_{L-1}, P_L)\\
+&= f(f(...f(f(f(0^n, K), P_2), P_3), …), P_{L-1}), P_L) = PHMAC_K(M_1)\\
+\end{align*}
+
+The process to compute$PHMAC_K(M_2)$ if the key $K$ were known would be as follows:
+\begin{align*}
+PHMAC_K(M_2) &= ITHASH(K||M_2) \\
+&= ITHASH(K||M_1||X) \\
+&= ITHASH(K||P_1||P_2||...||P_L||X)
+\end{align*}
+If the key $K$ were known, then the $ITHASH$ algorithm would proceed as follows:
+\begin{align*}
+(i = 1): H_1 &= f(H^0, P_1) \\
+&= f(0^n, K)\\
+(i = 2): H_2 &= f(H_1, P_2)\\
+&= f(f(H_0, P_1), P_2) \\
+&= f(f(0^n, K), P_2)\\
+(i = 3): H_3 &= f(H_2, P_3)\\
+&= f(f(f(0^n, K), P_2), P_3)\\
+\vdots \\
+(i = L): H_L &= f(H_{L-1}, P_L)\\
+&= f(f(...f(f(f(0^n, K), P_2), P_3), …), P_{L-1}), P_L)\\
+\end{align*}
+(Finally we compute the hash $f(H_L, X)$)
+\begin{align*}
+(i = L + 1): H_X &= f(H_L, X) \\
+&= f(f(f(...f(f(f(0^n, K), P_2), P_3), …), P_{L-1}), P_L), X) \\
+&= PHMAC_K(M_2)\\
+\end{align*}
+
+Knowing $PHMAC_K(M_1) = H_L$ however, we can use that as a substitution as follows:
+\begin{align*}
+(i = L + 1): H_X = f(PHMAC_K(M_1), X) = PHMAC_K(M_2)\\
+\end{align*}
+This requires no knowledge of the key $K$, just knowledge of $PHMAC_K(M_1)$. Thus we have seen how an attacker could produce $PHMAC_K(M_2)$. 
+QED. 
+
+\item % part (b)
+\textbf{\emph{Proof.}}(In order to render this answer shorter, assume all values are as defined in the assignment)
+
+We will now show how an attacker can find a second message/AHMAC pair.
+
+We know that $ITHASH$ is not weakly collision resistant. That is, we know it is computationally feasible that, given $M_1$, an attacker can find an $M_2$ such that $ITHASH(M_1) = ITHASH(M_2)$. We assume that such an $M_2$ has been found. (In order to find $M_2$ one might exploit some property of the public function $f$, but in this example we don’t know the details of $f$.) Let us examine the following steps of $ITHASH$ used to calculate $ITHASH(M_1)$ as we did in a).
+
+\begin{align*}
+(i = 1): H_1 &= f(H_0, P_1) \\
+&= f(0^n, P_1)\\
+(i = 2): H_2 &= f(H_1, P_2) \\
+&= f(f(H_0, P_1), P_2) \\
+&= f(f(0^n, P_1), P_2)\\
+\vdots \\
+(i = L): H_L &= f(H_{L-1}, P_L) \\
+&= f(f(...f(f(0^n, P_1), P_2), …), P_{L-1}), P_L) = ITHASH(M_1)\\
+\end{align*}
+
+In order to calculate $AHMAC_K(M_1)$ an additional last step would need to be performed:
+
+\begin{align*}
+(i = L+1): H_L &= f(f(f(...f(f(0^n, P_1), P_2), …), P_{L-1}), P_L), K) = AHMAC_K(M_1)\\
+&= f(ITHASH(M_1), K) = AHMAC_K(M_1)\\
+\end{align*}
+
+Because we know it is computationally feasible to find a message $M_2$ such that $ITHASH(M_1) = ITHASH(M_2)$, and we have assumed such a message $M_2$ has been found, we can substitute the last statement to the following:
+
+\begin{align*}
+(i = L+1): H_L = f(ITHASH(M_2), K) = AHMAC_K(M_1) = AHMACK(M_2)\\
+\end{align*}
+
+This is possible because we know the compression function $f$ is public knowledge, therefore it is easy to compute $ITHASH(M_1)$ and $ITHASH(M_2)$ (Neither of which require the key $K$), and the first $L$ rounds of computing $AHMAC_K(M)$ do not depend on $K$. In essence, an attacker who knows $M_1, AHMAC_K(M_1)$ and can computationally find an $M_2$ where $ITHASH(M_1) = ITHASH(M_2)$, has found a new pair $(M_2, AHMAC_K(M_2))$ where they know $AHMAC_K(M_2) = AHMAC_K(M_1)$. 
+QED.
+
+\end{enumerate}
+
+\newpage
+
+\stepcounter{problem}
+\item[] \textbf{Problem \theproblem} --- Fast RSA decryption using Chinese remaindering, 8
+    marks)
+
+\textbf{\emph{Proof.}} In order to prove this method correctly works we must prove that $M = M$'.
+That is, we must prove:
+\begin{align*}	
+C^d = M = M' \equiv pxM_q + qyM_p\ (mod \ n)
+\end{align*}
+where $0 \leq M \leq n - 1$.
+
+To prove this we will use the chinese remainder theorem. This theorem states that given pairwise coprime positive integers $n_1, n_2, …, n_k$ and arbitrary integers $a_1, a_2, …, a_k,$ the system of simultaneous congruences
+\begin{align*}
+&X \equiv a_1\ (mod\ n_1) \\
+&X \equiv a_2\ (mod\ n_2) \\
+&\vdots \\
+&X \equiv a_k\ (mod\ n_k) \\
+\end{align*}
+has a solution, and the solution is unique modulo $N = n_1n_2...n_k.$
+
+An ordinary RSA scheme to decrypt a message we would have to calculate $M \equiv C^d\ (mod\ n)$. 
+Using the Chinese remaindering theorem we can see that because $p$ and $q$ are coprime if:
+\begin{align*}
+M \equiv C^d\ (mod\ n) \equiv C^d\ (mod\ pq)\\
+\end{align*} 
+then
+\begin{align*}
+M \equiv C^d\ (mod\ p) \\
+M \equiv C^d\ (mod\ q)\\
+\end{align*}
+
+By solving for $M$ by the CRT Alice can decrypt $C$. Let’s move through this process step by step. Throughout this proof I will refer to $(p-1)$ and $(q-1)$ as $\phi(p)$ and $\phi(q)$ respectively because we know that $p$ and $q$ are prime. For step 1 and 2 the procedure is applied identically using $q$ instead of $p$, so showing the procedure using $p$ is sufficient.
+
+(Step 1): In calculating $d_p \equiv d\ (mod\ \phi(p))$ we are essentially factoring $d$. $d = k\phi(p) + d_p$ for some integer $k$. As we will see in step 2, $d_p$ is the only truly relevant number. \\
+
+(Step 2): Because we know that both $p$ and $q$ are prime, we can use this factorization to apply Euler’s theorem:
+\begin{align*}
+M &\equiv C^d\ (mod\ p)\\
+&= C^{\phi(p)*k+d_p}\ (mod\ p)			\text{\qquad- By step 1}\\
+&= (C^{\phi(p))k}C^{d_p}\ (mod\ p)\\
+&= (1)kC^{d_p}\ (mod\ p)				\text{\qquad- By Euler’s Theorem}\\
+&= C^{d_p} \equiv M_p\ (mod\ p)\\
+\end{align*} 
+Where $1 \leq M_p \leq \phi(p)$, which is a much more manageable number than $C^d$. 
+We have thus far shown that $M \equiv M_p \equiv C^d\ (mod p)$ and $M \equiv M_q \equiv C^d\ (mod\ q)$. The steps taken haven’t really gotten Alice closer to decrypting the message, rather they’ve enabled decryption using more manageable numbers. At this point Alice must then compute an $M$ which satisfies both of these congruences. That is:
+\begin{align*}
+M \equiv M_p\ (mod\ p) \\ 
+M \equiv M_q\ (mod\ q)\\
+\end{align*} 
+
+(Step 3): We know a few things at this point: $M = px + M_p$ (Because $M \equiv M_p\ (mod\ p)$ implies $px$ divides $M$ with remainder of $M_p$ for some $x$) and $M = qy + M_q$. (Because $M \equiv M_q\ (mod\ q)$ implies $qy$ divides $M$ with remainder of $M_q$ for some $y$) Therefore we need to solve the following equations which we know have solutions because both $p$ and $q$ are prime:
+\begin{align*}
+\text{Case 1: When the Euclidean Algorithm takes an even number of steps to complete} \\
+px + q(-y) = 1 \rightarrow px \equiv 1\ (mod\ q) \text{ ($x$ is $p$’s inverse for $(mod\ q)$) }\\
+\text{Case 2: When the Euclidean Algorithm takes an odd number of steps to complete} \\
+p(-x) + qy = 1 \rightarrow qy \equiv 1\ (mod\ p) \text{ ($y$ is $q$’s inverse for $(mod\ p)$) }\\
+\end{align*} 
+These cases are generalized as step 3: $px + qy = 1$. This equation is solved using the Extended Euclidean Algorithm.
+
+(Step 4): Now we will use $x$ and $y$ from step 3 in order to calculate the solution to our series of congruences. 
+
+We will explore $M \equiv pxM_q + qyM_p\ (mod\ pq)$. 
+\begin{align*}
+\text{Case 1:}\\
+M &\equiv pxM_q + qyM_p\ (mod\ p)\\
+&\equiv pxM_q + (1)M_p\ (mod\ p)		\text{\qquad- Because $qy \equiv 1\ (mod\ p)$, $y$ being the inverse of $q$}\\
+&\equiv (0) + M_p\ (mod\ p)			\text{\qquad\qquad- Because $p$ divides $pxM_q$ without remainder}\\
+&\equiv M_p\ (mod\ p)				\text{\qquad\qquad\qquad- Therefore $M_p$ is congruent to $M\ (mod\ p)$}\\
+\text{Case 2:} \\
+M &\equiv pxM_q + qyM_p\ (mod\ q)\\
+&\equiv (1)M_q + qyM_p\ (mod\ q)		\text{\qquad- Because $px \equiv 1\ (mod\ q)$, $x$ being the inverse of $p$}\\
+&\equiv M_q + (0)\ (mod\ q)			\text{\qquad\qquad- Because $q$ divides $qyM_p$ without remainder}\\
+&\equiv M_q\ (mod\ q)				\text{\qquad\qquad\qquad- Therefore $M_q$ is congruent to $M\ (mod\ q)$}\\
+\end{align*} 
+Therefore we have found a solution to the system of congruences which satisfies both of the equations we initially needed to satisfy, and then by the CRT $M \equiv C^d\ (mod\ n)$ using the process described. We will now examine the vanilla RSA method to ensure that $M \equiv C^d\ (mod\ n)$ as we assumed at the start. We can prove that $C^d \equiv M\ (mod\ n)$ through the method described within the course slides. $C^d \equiv (M^e)^d \equiv M^{ed}\ (mod\ n)$, with $d$ chosen such that it’s the inverse $ed \equiv 1\ (mod\ \phi(n))$ and then by applying Euler’s theorem to $M^{ed}$ we can arrive at the result of $C^d \equiv M\ (mod\ n)$. (As shown in the course lides by Renate Scheidler)
+
+Finally we can conclude that 
+\begin{align*}
+C^d = M = M' \equiv pxM_q + qyM_p\ (mod\ n)  \\
+\end{align*} 
+where $0 \leq M \leq n - 1$.
+QED.
+\newpage
+
+\stepcounter{problem}
+\item[] \textbf{Problem \theproblem} ---  RSA primes too close together, 18 marks)
+
+
+\begin{enumerate}
+\item % part (a)
+\textbf{\emph{Proof.}} Let $n$, $p$, and $q$ be integers defined as they are in a typical RSA cryptosystem, that is, $n = pq$, where $p$ and $q$ are primes. Suppose $n$ can be represented as a difference of squares such that $n = x^2 - y^2$, where $0 < y < x < n$, and also suppose in this instance that $p > q$, and all roots are positive. 
+
+$x$ is defined as an integer such that $x = \frac{(p+q)}{2}$, which is the average of $p$ and $q$. Therefore $p$ or $q$ must be larger than $x$, with the other being smaller. We have defined $p > q$, therefore $p > x$.
+
+Suppose there exists two pairwise integers, $a$, $b$, such that $a = b$, and $ab = n$. ($a = b = \sqrt{n}$). 
+Suppose there exists an integer $c$ such that $c = a + 1$. Consider what happens when we replace $a$ by $c$: $cb = n + b$. In order for $n$ to be factorized there must be an integer $d$ such that $d < a$, $b < c$, so that $cd = n$. Therefore, for any $p$, $q$ where $pq = n$ and $p > q$, $p$ must be at least as large as $c$ and $q$ must be at least as small as $d$. $p \geq c > a$, $b$, $\sqrt{n} > d \geq q$. Therefore $p > \sqrt{n}$. 
+
+At this point we have shown that $p > x$, $\sqrt{n}$. Now we must show that $x > \sqrt{n}$. $n$ is defined such that $n = x^2 - y^2$. Suppose $\sqrt{n} \geq x$. Then $n \geq x^2$ such that $n = x^2 + k$, where $k$ is some non-negative integer. However by $n$’s definition $n + y^2 = x^2$, so that a positive number must be added to $n$ in order to equal $x^2$, proving by contradiction that $x > \sqrt{n}$. 
+
+Thus $y > x > \sqrt{n}$. 
+
+QED
+
+\item  % part (b)
+
+\textbf{\emph{Proof.}}
+
+(while clause): When $a = x$ then $b = \sqrt{x^2 - n} = \sqrt{y^2} = y$, an integer. 
+
+(no early termination): Suppose the algorithm terminated when $a < x$. This implies that there exists a value $a < x$ such that $b = \sqrt{a^2 - n}$ where $b$ is an integer. Then: 
+
+\begin{align*}
+b^2 &= a^2 - n
+n &= a^2 - b^2
+n &= (a + b)(a - b)
+\end{align*} 
+
+We know that the prime factorization of $n$ is the trivial case $n = n \cdot 1$, and the case $n = pq$, $p > q$. Therefore $p = a + b$ and $q = a - b$. We know that $p = x + y$, and $q = x - y$. If $a < x$, then there exists a value $i$ such that $x = a + i$. Then there would need to be a solution to the system of equations $p = x - i + y$ and $q = x - i - y$, where $n = pq$. Because the only ways to factor $n$ is by $n = n \cdot 1$ and $n = pq = (x + y)(x - y)$, and there’s no solution to the system of equations, there exists a contradiction proving that $a$ must be equal to $x$ and will not terminate for any values less than $x$. 
+
+(output = $q$): Suppose $a = x$. Then $b = \sqrt{x^2 - n}$, $b^2 = x^2 - n = y^2$, therefore $b = y$. Then $a - b = x - y = q$.
+
+QED
+
+\item  % part (c)
+
+\textbf{\emph{Proof.}}
+$a$ begins at $\ceil*{\sqrt{n}}$. The goal is for the algorithm to terminate when $a = x$, with each iteration increasing $a$ by $1$. Therefore one only needs to count the number of integers between $\ceil*{\sqrt{n}}$ and $x$. This can be calculated by $x - \ceil*{\sqrt{n}}$. That is, by the end of the algorithm $a = \ceil*{\sqrt{n}} + i = x$ for some integer $i$. In addition the algorithm must at least set up the values of $a$ and $b$ which is always counted as $1$ iteration and provides the lower bounds when $x - \ceil*{\sqrt{n}} = 0$ because $x = \ceil*{\sqrt{n}}$. 
+
+\item  % part (d)
+\textbf{\emph{Proof.}} We see that $y^2 = x^2 - n$, therefore:
+\begin{align*}
+&x - \ceil*{\sqrt{n}} < \frac{x^2 - n}{2\sqrt{n}} \\ 
+&= x - \ceil*{\sqrt{n}} < \frac{(x - \sqrt{n})(x + \sqrt{n})}{2\sqrt{n}} 	\text{\qquad- By the binomial theorem} \\
+&= (x - \ceil*{\sqrt{n}})(2\sqrt{n}) < (x - \sqrt{n})(x + \sqrt{n}) \\
+\end{align*} 
+
+Now we can consider each pair of terms individually. We can see that $x - \ceil*{\sqrt{n}}$ must be equal or smaller than $x - \sqrt{n}$, we have also proved through part a) that $x > \sqrt{n}$, so $(2\sqrt{n}) = (\sqrt{n} + \sqrt{n}) < (x + \sqrt{n})$. Therefore the inequality holds. 
+
+QED.
+
+\item  % part (e)
+\textbf{\emph{Proof.}} We know from c) that the number loop iterations executed by the algorithm is $x - \ceil*{\sqrt{n}}$. Therefore we must prove:
+\begin{align*}
+x - \ceil*{\sqrt{n}} + 1 &\leq \frac{B^2}{2} + 1 \\
+= x - \ceil*{\sqrt{n}} &\leq \frac{B^2}{2} \\
+= 2(x - \ceil*{\sqrt{n}}) &\leq B^2 \\
+\end{align*} 
+We also know that $p - q = y < 2B\sqrt[4]{n}$. Thus:
+\begin{align*}
+\frac{y}{2} &< B\sqrt[4]{n} \\
+= \frac{y}{2\sqrt[4]{n}} &< B \\
+= \frac{y^2}{2\sqrt[4]{n}} &< B^2 \\
+\end{align*}
+We’ve proved in d) that $x - \ceil*{\sqrt{n}} <  \frac{y^2}{2\sqrt{n}}$. Thus:
+\begin{align*}	
+2(x - \ceil*{\sqrt{n}}) < \frac{y^2}{\sqrt{n}}
+\end{align*}
+Finally we can prove $\frac{y^2}{\sqrt{n}} \leq \frac{y^2}{2\sqrt[4]{n}}$. Suppose $n = ss$ for some integer $s \geq 2$. Suppose $s = tt$ for some integer $t \geq 2$. (Otherwise $s = 1$ and we know $n > 1$) Then we can see:
+\begin{align*}
+\frac{y^2}{\sqrt{n}} = \frac{y^2}{s} \leq \frac{y^2}{2\sqrt[4]{n}} = \frac{y^2}{2t}
+\end{align*}
+Therefore we can conclude:
+\begin{align*}
+2(x - \ceil*{\sqrt{n}}) < \frac{y^2}{\sqrt{n}} \leq \frac{y^2}{2\sqrt[4]{n}} < B^2 \text{\qquad where \qquad} x - \ceil*{\sqrt{n}} < \frac{B^2}{2} 
+\end{align*}
+which shows that the algorithm actually factors $n$ with strictly less than $\frac{B^2}{2} + 1$ loop iterations. 
+QED.
+
+
+\end{enumerate}
+
+\newpage
+
+\stepcounter{problem}
+\item[] \textbf{Problem \theproblem} -- The El Gamal public key cryptosystem is not
+    semantically secure, 12 marks
+
+\textbf{\emph{Proof.}} Let $M_1$ and $M_2$ be plaintexts where $M_1 \in QR_p$ and $M_2 \in NR_p$. Let $C$ be a ciphertext encrypted using Elgamal such that $C = (C_1, C_2) = E(M_i)$ where $i = 1$ or $2$. We will now prove that the attack presented in the assignment works. To prove that this attack works, let’s examine each case individually. 
+
+First we know that $M_1^{\frac{p-1}{2}} \equiv 1\ (mod\ p)$ and $M_2^{\frac{p-1}{2}} \equiv -1\ (mod\ p)$ by Euler’s Criterion. 
+
+Case 1 ($\Leg{y}{p} = 1$ and $\Leg{C_2}{p} = 1$):
+In this case, $y^{\frac{p-1}{2}} \equiv 1\ (mod\ p)$ and $C_2^{\frac{p-1}{2}} \equiv 1\ (mod\ p)$. Applying substitutions:
+\begin{align*}
+y^{\frac{p-1}{2}} &\equiv g^{\frac{x(p-1)}{2}} \equiv 1\ (mod\ p)			\text{\qquad(1) - By Euler’s criterion} \\
+&\\
+C_2^{\frac{p-1}{2}} &\equiv (My^k)^{\frac{p-1}{2}} \\
+&\equiv (M(g^x)^k)^{\frac{p-1}{2}} \\
+&\equiv (Mg^{xk})^{\frac{p-1}{2}} \\
+&\equiv M^{\frac{p-1}{2}}g^{\frac{xk(p-1)}{2}} \\
+&\equiv (1)g^{\frac{xk(p-1)}{2}}								\text{\qquad\qquad- If $M = M_1$ by Euler’s criterion} \\
+&\equiv (1)(1)^k											\text{\qquad\qquad\qquad- Substitution by (1)} \\
+&\equiv 1\ (mod\ p)
+\end{align*}
+
+Thus if Mallory sees case 1, she knows that $M = M_1$. 
+
+Case 2 ($\Leg{y}{p} = 1$ and $\Leg{C_2}{p} = -1$):
+In this case, $y^{\frac{p-1}{2}} \equiv 1\ (mod\ p)$ and $C_2^{\frac{p-1}{2}} \equiv -1\ (mod\ p)$. Applying substitutions:
+
+\begin{align*}
+y^{\frac{p-1}{2}} &\equiv g^{\frac{x(p-1)}{2}} \equiv 1\ (mod\ p)			\text{\qquad(1) - By Euler’s criterion} \\
+&\\
+C_2^{\frac{p-1}{2}} &\equiv (My^k)^{\frac{p-1}{2}} \\
+&\equiv (M(g^x)^k)^{\frac{p-1}{2}} \\
+&\equiv (Mg^{xk})^{\frac{p-1}{2}} \\
+&\equiv M^{\frac{p-1}{2}}g^{\frac{xk(p-1)}{2}} \\
+&\equiv (-1)g^{\frac{xk(p-1)}{2}}								\text{\qquad\qquad- If$M = M_2$ by Euler’s criterion} \\
+&\equiv (-1)(1)^k											\text{\qquad\qquad\qquad- Substitution by (1)} \\
+&\equiv -1\ (mod\ p)
+\end{align*}
+	
+Thus if Mallory sees case 2, she knows that $M = M_2$. 
+
+Case 3 ($\Leg{y}{p} = -1$, $\Leg{C_1}{p} = 1$, and$\Leg{C_2}{p} = 1$):
+In this case $y^{\frac{p-1}{2}} \equiv -1\ (mod\ p)$, $C_1^{\frac{p-1}{2}} \equiv 1\ (mod\ p)$, $C_2^{\frac{p-1}{2}} \equiv 1\ (mod\ p)$
+
+\begin{align*}
+y^{\frac{p-1}{2}} &\equiv g^{\frac{x(p-1)}{2}} \equiv -1\ (mod\ p)			\text{\qquad(1) - By Euler’s criterion} \\
+&\\
+C_1^{\frac{p-1}{2}} &\equiv g^{\frac{k(p-1)}{2}} \equiv 1\ (mod\ p)			\text{\qquad(2) - By Euler’s criterion} \\
+& \\
+C_2^{\frac{p-1}{2}} &\equiv (My^k)^{\frac{p-1}{2}} \\
+&\equiv (M(g^x)^k)^{\frac{p-1}{2}} \\
+&\equiv (Mg^{xk})^{\frac{p-1}{2}} \\
+&\equiv M^{\frac{p-1}{2}}g^{\frac{xk(p-1)}{2}} \\
+&\equiv (1)g^{\frac{xk(p-1)}{2}}								\text{\qquad\qquad- If$M = M_1$ by Euler’s criterion} \\
+&\equiv (1)(1)^k											\text{\qquad\qquad\qquad- Substitution by (2)} \\
+&\equiv 1\ (mod\ p)
+\end{align*}
+
+Case 4 ($\Leg{y}{p} = -1$, $\Leg{C_1}{p} = 1$, and$\Leg{C_2}{p} = -1$):
+In this case $y^{\frac{p-1}{2}} \equiv -1\ (mod\ p)$, $C_1^{\frac{p-1}{2}} \equiv 1\ (mod\ p)$, $C_2^{\frac{p-1}{2}} \equiv -1\ (mod\ p)$
+
+\begin{align*}
+y^{\frac{p-1}{2}} &\equiv g^{\frac{x(p-1)}{2}} \equiv -1\ (mod\ p)			\text{\qquad(1) - By Euler’s criterion} \\
+&\\
+C_1^{\frac{p-1}{2}} &\equiv g^{\frac{k(p-1)}{2}} \equiv 1\ (mod\ p)			\text{\qquad(2) - By Euler’s criterion} \\
+& \\
+C_2^{\frac{p-1}{2}} &\equiv (My^k)^{\frac{p-1}{2}} \\
+&\equiv (M(g^x)^k)^{\frac{p-1}{2}} \\
+&\equiv (Mg^{xk})^{\frac{p-1}{2}} \\
+&\equiv M^{\frac{p-1}{2}}g^{\frac{xk(p-1)}{2}} \\
+&\equiv (-1)g^{\frac{xk(p-1)}{2}}								\text{\qquad\qquad- If$M = M_2$ by Euler’s criterion} \\
+&\equiv (-1)(1)^k											\text{\qquad\qquad\qquad- Substitution by (2)} \\
+&\equiv -1\ (mod\ p)
+\end{align*}
+
+Case 5 ($\Leg{y}{p} = -1$, $\Leg{C_1}{p} = -1$, and$\Leg{C_2}{p} = 1$):
+In this case $y^{\frac{p-1}{2}} \equiv -1\ (mod\ p)$, $C_1^{\frac{p-1}{2}} \equiv -1\ (mod\ p)$, $C_2^{\frac{p-1}{2}} \equiv 1\ (mod\ p)$
+
+\begin{align*}
+y^{\frac{p-1}{2}} &\equiv g^{\frac{x(p-1)}{2}} \equiv -1\ (mod\ p)			\text{\qquad(1) - By Euler’s criterion} \\
+&\\
+C_1^{\frac{p-1}{2}} &\equiv g^{\frac{k(p-1)}{2}} \equiv -1\ (mod\ p)			\text{\qquad(2) - By Euler’s criterion} \\
+& \\
+C_2^{\frac{p-1}{2}} &\equiv (My^k)^{\frac{p-1}{2}} \\
+&\equiv (M(g^x)^k)^{\frac{p-1}{2}} \\
+&\equiv (Mg^{xk})^{\frac{p-1}{2}} \\
+&\equiv M^{\frac{p-1}{2}}g^{\frac{xk(p-1)}{2}} \\
+&\equiv (-1)g^{\frac{xk(p-1)}{2}}								\text{\qquad\qquad- If$M = M_2$ by Euler’s criterion} \\
+&\equiv (-1)(-1)^k											\text{\qquad\qquad\qquad- Substitution by (1)} \\
+&\equiv 1\ (mod\ p)
+\end{align*}
+
+This holds because $k \in \Z_{p-1}$, which implies $k$ is odd, and $(-1)^k \ne 1$. 
+
+Case 6 ($\Leg{y}{p} = -1$, $\Leg{C_1}{p} = -1$, and$\Leg{C_2}{p} = -1$):
+In this case $y^{\frac{p-1}{2}} \equiv -1\ (mod\ p)$, $C_1^{\frac{p-1}{2}} \equiv -1\ (mod\ p)$, $C_2^{\frac{p-1}{2}} \equiv -1\ (mod\ p)$
+
+\begin{align*}
+y^{\frac{p-1}{2}} &\equiv g^{\frac{x(p-1)}{2}} \equiv -1\ (mod\ p)			\text{\qquad(1) - By Euler’s criterion} \\
+&\\
+C_1^{\frac{p-1}{2}} &\equiv g^{\frac{k(p-1)}{2}} \equiv -1\ (mod\ p)			\text{\qquad(2) - By Euler’s criterion} \\
+& \\
+C_2^{\frac{p-1}{2}} &\equiv (My^k)^{\frac{p-1}{2}} \\
+&\equiv (M(g^x)^k)^{\frac{p-1}{2}} \\
+&\equiv (Mg^{xk})^{\frac{p-1}{2}} \\
+&\equiv M^{\frac{p-1}{2}}g^{\frac{xk(p-1)}{2}} \\
+&\equiv (1)g^{\frac{xk(p-1)}{2}}								\text{\qquad\qquad- If$M = M_1$ by Euler’s criterion} \\
+&\equiv (1)(-1)^k											\text{\qquad\qquad\qquad- Substitution by (1)} \\
+&\equiv -1\ (mod\ p)
+\end{align*}
+
+This holds because $k \in \Z_{p-1}$, which implies $k$ is odd, and $(-1)^k \ne 1$. 		
+
+We can see in each of these cases that the legendre symbol calculations depend upon which plaintext has been encrypted. Thus Mallory can assert with certainty which plaintext corresponds to which encryption and the Elgamal encryption scheme is not semantically secure. QED
+
+\newpage
+
+
+\stepcounter{problem}
+\item[] \textbf{Problem \theproblem} --- An IND-CPA, but not IND-CCA secure version of RSA, 12
+    marks
+
+Mallory can perform a multiplicative attack on this version of RSA. 
+
+\textbf{\emph{Proof.}} She generates an $X \in \Z_n^*$ where $X^e \ne 1\ (mod\ n)$. Both $n$ and $e$ are public information so it’s easy to perform this step. Then for her chosen ciphertext she submits $C’ \equiv CX^e\ (mod\ n)$, where $C$ is the ciphertext given back to her by the oracle. She then proceeds as follows:
+
+\begin{align*}
+M’ \equiv (C’)^d \equiv C^d(X^e)^d \equiv MX\ (mod\ n)
+\end{align*}
+
+In this IND-CPA secure version she knows the values $s$ and $t$ of the ciphertext handed back to her because they’re simply concatenated and she knows their respective lengths ($|t| = m$). She would proceed as follows:
+\begin{align*}
+C’ &= (s || t \oplus M_11) = C \oplus (0^{|s|} || M_1)		\text{\qquad- $M’ = M_1 \oplus M_1 = 0$} \\
+&= (r^e\ (mod\ n) || H(r) \oplus M_i \oplus M_1) \\
+&= (r^e\ (mod\ n) || H(r))		 
+\end{align*}
+(At least she assumes $M_i = M_1$, if it’s not then $H(r) = H(r) \oplus M_2 \oplus M_1$ which she will see at the end)
+
+\begin{align*}	
+C’ &\equiv CX^e\ (mod\ n) \\
+C’^d &\equiv (CX^e)^d\ (mod\ n) \\
+&\equiv (r^e\ (mod\ n) || H(r))^d \\
+&\equiv ((r^e\ (mod\ n) || H(r) \oplus M_i)X^e)^d \\
+&\equiv (r^e\ (mod\ n) || H(r) \oplus M_i)^dX^{ed} \\ 
+&\equiv (r^e\ (mod\ n) || H(r) \oplus M_i)^dX 				\text{\qquad- Because $ed = 1 + k\phi(n) \equiv 1\ (mod\ n)$} \\
+&\equiv C^dX \\
+&\equiv M_iX\ (mod\ n)							\text{\qquad\qquad\qquad\qquad- (Once more assuming $M_i = M_1$)}
+\end{align*}
+
+In order for this to work Mallory would need to calculate $X$. (As $\oplus$ provides binary addition, not multiplication). Therefore she could use the EE algorithm to find the inverse of $C$ such that $CC^{-1} \equiv 1\ (mod\ n)$ so that $C' \equiv CX^e\ (mod\ n)$ becomes $C'C^{-1} \equiv CC^{-1}X^e \equiv X^e\ (mod\ n)$. At this point Mallory would need to use $X^e$ to find $X$. This is done by simply calculating $X = (X^e)^{\frac{1}{e}}$. Through the EE algorithm we can find $X^{-1}$ that satisfies $XX^{-1} \equiv 1\ (mod\ n)$, then she can compute $M_i \equiv M_iXX^{-1}\ (mod\ n)$. If at this point $M_i = M_1$ then she knows that $M_i = M_1$ and that $H(r) = H(r) \oplus M_i \oplus M_1$. Otherwise, $M_i = M_2$, and she will get some form of garbage because $H(r) \oplus M_2 \oplus M_1$ was used instead, so she concludes $C = E_k(M_2)$. $C' \ne C$ because $(s || t \oplus M_1) \ne (s || t)$. Finding modular inverses can be done in polynomial time, therefore this version of RSA is provably not IND-CCA secure. QED 
+
+
+\newpage
+
+\stepcounter{problem}
+\item[]  \textbf{Problem \theproblem} --- An attack on RSA with small decryption exponent, 25
+    marks
+
+\begin{enumerate}
+
+\item % part (a)
+
+\item % part (b)
+
+\item % part (c)
+
+\item % part (d)
+
+\item % part (e)
+
+\item % part (f)
+
+\end{enumerate}
+
+\newpage
+
+\stepcounter{problem}
+\item[] \textbf{Problem \theproblem} --- Universal forgery attack on the El Gamal signature
+    scheme, 12 marks)
+
+\begin{enumerate}
+
+\item % part (a)
+
+\item % part (b)
+
+\item % part (c)
+
+\end{enumerate}
+
+\newpage
+
+\stepcounter{problem} \stepcounter{problem}
+
+\item[] \textbf{Problem \theproblem} --- Columnar transposition cryptanalysis, 10 marks
+
+\end{enumerate}
+\end{document}
